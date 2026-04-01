@@ -10,3 +10,4 @@ python -m entrypoint.ingest
 python -m entrypoint.query
 
 
+<img width="778" height="531" alt="agentic_rag_architecture" src="https://github.com/user-attachments/assets/59a3415c-db4f-4b72-8787-d4be9e470711" />
