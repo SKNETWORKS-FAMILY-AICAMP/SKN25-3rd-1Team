@@ -14,7 +14,7 @@ from src.nodes import (
     route_after_self_repair_check
 )
 
-# 추가로 구현해야 할 라우팅 함수 (예시)
+# 추가로 구현해야 할 라우팅 함수 
 def route_issue_type(state):
     """retrieve_node 이후, 문서/의도를 바탕으로 SW, HW, 센터방문을 분류합니다."""
     # 실제로는 state 내용을 보고 판단하는 로직이 들어갑니다.

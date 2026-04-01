@@ -11,3 +11,4 @@ class GraphState(TypedDict):
     device_model: Optional[str]      # 예: "Galaxy S22"
     is_hardware_issue: bool          # 물리적 파손 여부 (True/False)
     wants_self_repair: Optional[bool] # 자가수리 의향 (True/False/None)
+    waiting_for_repair_choice: bool
