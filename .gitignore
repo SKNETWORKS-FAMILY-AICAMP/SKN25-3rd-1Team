@@ -37,9 +37,9 @@ wheels/
 # data/processed/*
 # data/vector_store/*
 
-# !data/raw/.gitkeep
-# !data/processed/.gitkeep
-# !data/vector_store/.gitkeep
+!data/raw/.gitkeep
+!data/processed/.gitkeep
+!data/vector_store/.gitkeep
 
 # 업로드하신 FAQ 데이터 등 로컬 데이터 파일 무시
 *.csv
