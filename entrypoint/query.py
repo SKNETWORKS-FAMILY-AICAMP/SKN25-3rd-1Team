@@ -1,6 +1,12 @@
+"""
+실험용 : 코드 돌아가는지 cli로 확인
+"""
 import sys
 import os
 from dotenv import load_dotenv
+
+# cp949 인코딩 에러 방지를 위해 stdout 변경
+sys.stdout.reconfigure(encoding='utf-8')
 
 # 1. 모듈 경로 설정 (src 폴더 접근용)
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -14,68 +20,35 @@ from src.pipelines.generation_pipeline import generate_cs_response
 # 환경 변수 로드
 load_dotenv()
 
-def run_test_scenarios():
-    scenarios = [
-        {
-            "title": "테스트 1: 단순 인사말 (Router -> Chat Node)",
-            "query": "안녕! 오늘 날씨 참 좋다. 넌 이름이 뭐야?",
-            "thread_id": "user_1"
-        },
-        {
-            "title": "테스트 2: 일반 SW CS 문의 (Router -> Retrieve -> Generate)",
-            "query": "따뜻해지거나 뜨거워지는 등 발열 현상",
-            "thread_id": "user_6"
-        }
-    ]
-
-    print("=" * 60)
-    print("chat node와 소프트웨어 질문 확인")
-    print("=" * 60)
-
-    for i, scenario in enumerate(scenarios, 1):
-        print(f"\n\n▶️ [{scenario['title']}] - 대화방: {scenario['thread_id']}")
-        print(f"👤 사용자: {scenario['query']}")
-        print("-" * 60)
-        
-        # 파이프라인 실행 (thread_id 전달)
-        result = generate_cs_response(scenario['query'], thread_id=scenario['thread_id'])
-        
-        # 결과 출력
-        answer = result.get('answer', '답변을 생성하지 못했습니다.')
-        source = result.get('source_document', '출처 없음')
-        score = result.get('reliability_score', 'N/A')
-        
-        print(f"🤖 AI 답변:\n{answer}\n")
-        print(f"📑 출처: {source} | 📊 신뢰도: {score}")
-        
-  
-            
-    print("\n" + "=" * 60)
-    print("[테스트 종료] ")
-    print("=" * 60)
-
 if __name__ == "__main__":
-    # 1. 정해진 시나리오 모드 실행
-    run_test_scenarios()
+
+    interactive_thread_id = "userdemo"
+    print("\n\n" + "=" * 60)
+    print("대화형 모드 진입 (종료: 'q', 'quit', 'exit')")
     
+    # 1. 초기 기기 선택
+    print("\n현재 사용중인 기기 모델을 선택하거나 입력해주세요.")
+    print("(예: 갤럭시 S24, S20 Ultra, 기타, 또는 엔터키를 눌러 건너뛰기)")
+    user_device = input("기기명: ").strip()
+    if not user_device:
+        user_device = "선택하지 않음"
     
-    # 사용자가 직접 테스트할 때는 동일한 세션 ID를 유지해야 대화가 이어집니다.
-    interactive_thread_id = "userdemo" 
+    print(f"\n[{user_device}] 로 기기가 설정되었습니다. 대화를 시작합니다.")
     
     while True:
         user_input = input("\n👤 사용자: ")
-        if user_input.lower() in ['q', 'quit', 'exit']:
+        if user_input.lower() in ['q']:
             print("테스트를 종료합니다.")
             break
             
         if not user_input.strip():
             continue
             
-        # 동일한 interactive_thread_id를 넘겨주어 이전 맥락과 Flag를 기억하게 함
-        result = generate_cs_response(user_input, thread_id=interactive_thread_id)
+        result = generate_cs_response(user_input, selected_device=user_device, thread_id=interactive_thread_id)
         
         print("-" * 60)
-        print(f"🤖 AI 답변:\n{result.get('answer')}")
-        
-
+        if isinstance(result, dict):
+            print(f"🤖 AI 답변:\n{result.get('answer', '')}")
+        else:
+            print("🤖 AI 답변 생성 실패")
         print("-" * 60)

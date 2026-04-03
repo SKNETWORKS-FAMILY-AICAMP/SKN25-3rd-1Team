@@ -11,7 +11,7 @@ from src.pipelines.embedding_pipeline import get_vector_store
 #======================================================
 
 def ingest_faq_data(file_path: str):
-    """FAQ 데이터를 Chroma(Title)와 BM25(Content)용으로 분리하여 적재하는 파이프라인"""
+    """FAQ 데이터를 Chroma(Title)와 BM25용으로 분리하여 적재하는 파이프라인"""
     print(f"[{file_path}] 데이터 로드 시작...")
     
     file_name = os.path.basename(file_path)
