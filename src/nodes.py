@@ -3,6 +3,7 @@ from pydantic import BaseModel, Field
 from typing import Literal, Optional
 from langchain_openai import ChatOpenAI
 from langchain_core.prompts import PromptTemplate
+from langchain_core.messages import SystemMessage, HumanMessage, AIMessage
 from src.state import GraphState
 from src.pipelines.embedding_pipeline import get_vector_store
 import json # <-- 추가
@@ -66,7 +67,7 @@ def route_question(state: GraphState) -> str:
     
     # 일반적인 새 질문인 경우
     structured_llm = llm.with_structured_output(RouteQuery)
-    result = structured_llm.invoke(state["question"])
+    result = structured_llm.invoke(state["messages"][-1].content)
     
     if result.intent == "greeting":
         return "chat_node"
@@ -86,13 +87,12 @@ def chat_node(state: GraphState) -> GraphState:
 
 [고객 사전 선택 정보]
 선택한 기기: {state.get("selected_device", "선택하지 않음")}
-
-고객의 메시지: {state['question']}
 """
-    response = llm.invoke(prompt)
+    sys_msg = SystemMessage(content=prompt)
+    response = llm.invoke([sys_msg] + state["messages"])
     
     return {
-        "answer": response.content, 
+        "messages": [response], 
         "source_document": "대화형 AI", 
         "reliability_score": 1.0
     }
@@ -100,7 +100,7 @@ def chat_node(state: GraphState) -> GraphState:
 
 def retrieve_node(state: GraphState) -> GraphState:
     print("---NODE: 문서 검색 (Vector DB 단독)---")
-    question = state["question"]
+    question = state["messages"][-1].content
     selected_device = state.get("selected_device", "선택하지 않음")
     
     # 1. Chroma DB (벡터 검색) 호출
@@ -136,12 +136,11 @@ def generate_node(state: GraphState) -> GraphState:
 선택한 기기: {state.get("selected_device", "선택하지 않음")}
 
 [관련 매뉴얼 문서]
-{state['context']}
-
-고객의 문의 내용: {state['question']}
+{state.get('context', '검색된 내용 없음')}
 """
-    response = llm.invoke(prompt)
-    return {"answer": response.content, "source_document": "내부 매뉴얼", "reliability_score": 0.9}
+    sys_msg = SystemMessage(content=prompt)
+    response = llm.invoke([sys_msg] + state["messages"])
+    return {"messages": [response], "source_document": "내부 매뉴얼", "reliability_score": 0.9}
 
 def load_self_repair_json_str():
     file_path = os.path.join("data", "processed", "self-repair-list.json")
@@ -175,13 +174,13 @@ def self_repair_classifier_node(state: GraphState) -> GraphState:
    - '센터 갈래', '센터 찾아줘', '예약해줘' 등 센터 방문 의지면 'center_visit'
    - 단순히 고장을 호소하며 어떻게 할지 묻기만 하거나 의향이 모호하다면 'unknown'
 
-사용자 질문: {state.get("question", "")}
 관련 문서: {state.get("context", "")}
 """
     
     # 3. LLM 호출
+    sys_msg = SystemMessage(content=prompt)
     structured_llm = llm.with_structured_output(SelfRepairExtraction)
-    result = structured_llm.invoke(prompt)
+    result = structured_llm.invoke([sys_msg] + state["messages"])
     
     device_model = result.device_model
     is_hw = result.is_hardware_issue
@@ -207,7 +206,6 @@ def self_repair_classifier_node(state: GraphState) -> GraphState:
         "device_model": device_model,
         "is_hardware_issue": is_hw,
         "waiting_for_repair_choice": is_repairable and user_intent == "self_repair", 
-        "answer": ""
     }
 
 def self_repair_guide_node(state: GraphState) -> GraphState:
@@ -236,7 +234,7 @@ def self_repair_guide_node(state: GraphState) -> GraphState:
     )
     
     # 가이드를 줬으므로 대기 상태 해제
-    return {"answer": guide_text, "waiting_for_repair_choice": False}
+    return {"messages": [("assistant", guide_text)], "waiting_for_repair_choice": False}
 
 import requests
 import os
@@ -297,7 +295,7 @@ def nearest_center_node(state: dict) -> dict: # LangGraph State 타입
         dynamic_answer = "안되는디요"
         
     return {
-        "answer": dynamic_answer, 
+        "messages": [("assistant", dynamic_answer)], 
         "source_document": "위치 기반 오프라인 센터 안내",
         "reliability_score": 1.0,
         "waiting_for_repair_choice": False
@@ -307,7 +305,6 @@ def route_issue_type(state: GraphState) -> str:
     
     prompt = f"""사용자의 질문이 어떤 유형에 속하는지 분류하세요.
 [사전 선택 기기: {state.get("selected_device", "선택하지 않음")}]
-사용자 질문: {state['question']}
 
 분류 지침:
 아래에 해당하는 증상이나 문의는 모두 'software' 로 분류하세요:
@@ -330,8 +327,9 @@ def route_issue_type(state: GraphState) -> str:
 - 기타/주의사항
 """
     
+    sys_msg = SystemMessage(content=prompt)
     structured_llm = llm.with_structured_output(IssueTypeCheck)
-    result = structured_llm.invoke(prompt)
+    result = structured_llm.invoke([sys_msg] + state["messages"])
     
     if result.issue_type == "software":
         return "generate_node"

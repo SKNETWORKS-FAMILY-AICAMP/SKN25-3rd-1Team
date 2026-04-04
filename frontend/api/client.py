@@ -24,7 +24,10 @@ def get_chat_response(question: str, selected_device: str, thread_id: str = "str
         result = generate_cs_response(question, selected_device, thread_id)
         
         if isinstance(result, dict):
-            return result.get('answer', "죄송합니다, 답변을 생성하지 못했습니다. 다시 질문해주세요.")
+            messages = result.get('messages', [])
+            if messages:
+                return messages[-1].content
+            return "죄송합니다, 답변을 생성하지 못했습니다. 다시 질문해주세요."
         return "죄송합니다, 내부 연결에 문제가 발생했습니다."
     except Exception as e:
         print(f"API Client Error: {e}")
