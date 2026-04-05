@@ -48,7 +48,8 @@ if __name__ == "__main__":
         
         print("-" * 60)
         if isinstance(result, dict):
-            print(f"🤖 AI 답변:\n{result.get('answer', '')}")
+            final_ans = result.get('messages', [])[-1].content if result.get('messages') else ""
+            print(f"🤖 AI 답변:\n{final_ans}")
         else:
             print("🤖 AI 답변 생성 실패")
         print("-" * 60)
