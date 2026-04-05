@@ -325,8 +325,29 @@ def nearest_center_node(state: dict) -> dict: # LangGraph State 타입
         "reliability_score": 1.0,
         "waiting_for_repair_choice": False
     }
+def fallback_node(state: GraphState) -> GraphState:
+    print("---NODE: 검색 실패 예외 처리 (선택지 제공)---")
+    
+    fallback_message = (
+        "말씀하신 내용에 대한 정확한 정보를 서비스 매뉴얼에서 찾지 못했어요 😢\n\n"
+        "원하시는 다음 단계를 선택하시거나 내용을 다시 입력해 주세요:\n"
+        "1. 📍 **가까운 서비스 스토어 위치 안내받기**\n"
+        "2. 💬 **질문을 다른 방식으로 다시 하기**\n"
+        "3. 🛠️ **직접 수리(자가수리)가 가능한 모델인지 확인하기**\n"
+    )
+    
+    return {
+        "messages": [("assistant", fallback_message)],
+        "source_document": "시스템 안내",
+        "reliability_score": 1.0,
+        "waiting_for_repair_choice": False
+    }
+
 def route_issue_type(state: GraphState) -> str:
     print("---ROUTING: 이슈 타입 분류 중---")
+    
+    if state.get("context") == "검색된 문서 없음":
+        return "fallback_node"
     
     prompt = f"""사용자의 질문이 어떤 유형에 속하는지 분류하세요.
 [사전 선택 기기: {state.get("selected_device", "선택하지 않음")}]
