@@ -104,66 +104,56 @@ def ingest_faq_data(file_path: str):
 #======================================================
 #=========자가수리 적재 시작
 #======================================================
-# def ingest_selfrepair_data(folder_path: str):
-#     print(f"\n[{folder_path}] 디렉토리 내 자가수리 매뉴얼 데이터 로드 시작...")
+from src.pipelines.self_repair_rag_pipeline import chunk_md, extract_model_from_filename
 
-#     # 입력된 경로가 폴더인지 확인
-#     if not os.path.isdir(folder_path):
-#         print(f"❌ 오류: '{folder_path}'는 유효한 폴더 경로가 아닙니다.")
-#         return
+def ingest_selfrepair_data(folder_path: str):
+    print(f"\n[{folder_path}] 디렉토리 내 자가수리 매뉴얼 데이터 로드 시작...")
 
-#     documents = []
+    # 입력된 경로가 폴더인지 확인
+    if not os.path.isdir(folder_path):
+        print(f"❌ 오류: '{folder_path}'는 유효한 폴더 경로가 아닙니다.")
+        return
 
-#     # 1. 폴더 내 모든 PDF 파일 탐색
-#     pdf_files = [f for f in os.listdir(folder_path) if f.lower().endswith('.pdf')]
+    documents = []
+
+    # 1. 폴더 내 모든 MD 파일 탐색
+    md_files = [f for f in os.listdir(folder_path) if f.lower().endswith('.md')]
     
-#     if not pdf_files:
-#         print(f"'{folder_path}' 파일을 찾지 못했습니다.")
-#         return
+    if not md_files:
+        print(f"'{folder_path}'에서 .md 파일을 찾지 못했습니다.")
+        return
 
-#     print(f"총 {len(pdf_files)}개의 PDF 파일을 발견했습니다. 차례대로 로드합니다.")
+    print(f"총 {len(md_files)}개의 MD 파일을 발견했습니다. 차례대로 로드합니다.")
 
-#     # 2. PDF 파일 순회 및 메타데이터 보강
-#     for file_name in pdf_files:
-#         file_path = os.path.join(folder_path, file_name)
-#         print(f" '{file_name}' 읽는 중...")
+    # 2. MD 파일 순회 및 청킹
+    for file_name in md_files:
+        file_path = os.path.join(folder_path, file_name)
+        print(f" '{file_name}' 읽는 중...")
         
-#         try:
-#             loader = PyPDFLoader(file_path)
-#             pages = loader.load() 
-            
-#             for page in pages:
-#                 metadata = page.metadata
-#                 metadata.update({
-#                     "source_file": file_name, # 모델 분리.
-#                     "category": "자가수리",           
-#                     "classification": "모바일 수리 가이드" 
-#                 })
-#                 documents.append(Document(page_content=page.page_content, metadata=metadata))
+        try:
+            model_name = extract_model_from_filename(file_name)
+            with open(file_path, 'r', encoding='utf-8') as f:
+                full_md = f.read()
+
+            docs = chunk_md(full_md, model_name)
+            if docs:
+                documents.extend(docs)
                 
-#         except Exception as e:
-#             print(f" ❌ '{file_name}' 로드 중 오류 발생: {e}")
-#             continue # 특정 파일에서 에러가 나도 멈추지 않고 다음 파일로 넘어감
+        except Exception as e:
+            print(f" ❌ '{file_name}' 로드 중 오류 발생: {e}")
+            continue
 
-#     print(f"\n총 {len(documents)}페이지의 PDF를 읽어왔습니다. 청킹을 진행합니다...")
-
-#     # 3. 텍스트 청킹
-#     text_splitter = RecursiveCharacterTextSplitter(
-#         chunk_size=500,       
-#         chunk_overlap=50,    
-#         separators=["\n\n", "\n", ".", " ", ""]
-#     )
-#     split_docs = text_splitter.split_documents(documents)
+    print(f"\n총 {len(documents)}개의 청크(Chunk)를 Vector DB에 적재합니다...")
     
-#     # 4. Vector DB 적재
-#     print(f"총 {len(split_docs)}개의 청크(Chunk)를 Vector DB에 적재합니다...")
-#     vector_store = get_vector_store("self-repair")
+    # 3. Vector DB 적재
+    vector_store = get_vector_store("self-repair")
     
-#     batch_size = 150
-#     for i in range(0, len(split_docs), batch_size):
-#         batch = split_docs[i : i + batch_size]
-#         vector_store.add_documents(batch)
-#         print(f"✅ 적재 진행률: {min(i + batch_size, len(split_docs))} / {len(split_docs)}")
+    batch_size = 150
+    for i in range(0, len(documents), batch_size):
+        batch = documents[i : i + batch_size]
+        vector_store.add_documents(batch)
+        print(f"적재 진행률: {min(i + batch_size, len(documents))} / {len(documents)}")
         
-#     print(f"🎉 자가수리 데이터 Vector DB(ChromaDB) 구축 완료 (처리된 파일 수: {len(pdf_files)}개)")
+    print(f"자가수리 데이터 Vector DB(ChromaDB) 구축 완료 (처리된 파일 수: {len(md_files)}개)")
+
 
