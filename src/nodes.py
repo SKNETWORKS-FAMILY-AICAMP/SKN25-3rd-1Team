@@ -68,16 +68,28 @@ class SelfRepairExtraction(BaseModel):
 # ==========================================
 # [2] 조건부 라우팅 함수
 # ==========================================
-def route_question(state: GraphState) -> str:
-    print("---ROUTING: 진입점 및 의도 분류 중---")
-    structured_llm = llm.with_structured_output(RouteQuery)
-    result = structured_llm.invoke(state["messages"])
+def route_issue_type(state: GraphState) -> str:
+    print("---ROUTING: 이슈 타입 분류 중---")
     
-    if result.intent == "greeting":
-        return "chat_node"
-    elif result.intent == "center_visit":
+    if state.get("context") == "검색된 문서 없음":
+        return "fallback_node"
+    
+    prompt = f"""사용자의 질문이 어떤 유형인지 분류하세요.
+[사전 선택 기기: {state.get("selected_device", "선택하지 않음")}]
+
+1. 'hardware': 자가수리, 배터리 교체, 액정 교체 등 물리적으로 직접 수리하려는 의향이 있는 경우
+2. 'software': 그 외 모든 기기 문제 및 설정 문의
+3. 'center_visit': 센터 위치나 예약을 명시적으로 요청하는 경우
+"""
+    sys_msg = SystemMessage(content=prompt)
+    structured_llm = llm.with_structured_output(IssueTypeCheck)
+    result = structured_llm.invoke([sys_msg] + state["messages"])
+    
+    if result.issue_type == "hardware":
+        return "self_repair_classifier_node"
+    elif result.issue_type == "center_visit":
         return "nearest_center_node"
-    return "retrieve_node"
+    return "generate_node"
  
  
 # ==========================================
@@ -417,6 +429,21 @@ def route_issue_type(state: GraphState) -> str:
     if state.get("context") == "검색된 문서 없음":
         return "fallback_node"
     
+    prompt = f"""사용자의 질문이 어떤 유형인지 분류하세요.
+[사전 선택 기기: {state.get("selected_device", "선택하지 않음")}]
+
+1. 'hardware': 자가수리, 배터리 교체, 액정 교체 등 물리적으로 직접 수리하려는 의향이 있는 경우
+2. 'software': 그 외 모든 기기 문제 및 설정 문의
+3. 'center_visit': 센터 위치나 예약을 명시적으로 요청하는 경우
+"""
+    sys_msg = SystemMessage(content=prompt)
+    structured_llm = llm.with_structured_output(IssueTypeCheck)
+    result = structured_llm.invoke([sys_msg] + state["messages"])
+    
+    if result.issue_type == "hardware":
+        return "self_repair_classifier_node"
+    elif result.issue_type == "center_visit":
+        return "nearest_center_node"
     return "generate_node"
     
 def route_after_self_repair_check(state: GraphState) -> str:
@@ -434,4 +461,15 @@ def check_hallucination_routing(state: GraphState) -> str:
         return "END"
     else:
         return "nearest_center_node"
- 
+
+def route_question(state: GraphState) -> str:
+    print("---ROUTING: 진입점 및 의도 분류 중---")
+    structured_llm = llm.with_structured_output(RouteQuery)
+    recent_messages = state["messages"][-2:]
+    result = structured_llm.invoke(recent_messages)
+    
+    if result.intent == "greeting":
+        return "chat_node"
+    elif result.intent == "center_visit":
+        return "nearest_center_node"
+    return "retrieve_node"
