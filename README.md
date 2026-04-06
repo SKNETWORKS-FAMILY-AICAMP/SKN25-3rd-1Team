@@ -63,47 +63,40 @@ SKN25-3RD-1TEAM/
 
 ---
 
-## 4. 데이터 파이프라인
+## 4. 데이터 파이프라인과 모듈별 상세 설명
 
----
-
-## 5. 모듈별 상세 설명
-
-### 5.1 ingestion_pipeline.py
+### 4.1 ingestion_pipeline.py
 
 **역할**
 
-### 5.2 embedding_pipeline.py
+### 4.2 embedding_pipeline.py
 
 **역할**
 
-### 5.3 generation_pipeline.py
+### 4.3 generation_pipeline.py
 
 **역할**
 
-### 5.4 nodes.py
+### 4.4 nodes.py
 
 **역할**
 
-### 5.5 graph.py
+### 4.5 graph.py
 
 **역할**
 
 ---
 
-## 6. 시연 결과
+## 5. 시연 결과
 
-### 6.1 [시연 케이스 제목]
+### [시연 케이스 제목]
 
 ![시연결과](이미지경로)
 
-### 6.2 [시연 케이스 제목]
-
-![시연결과](이미지경로)
 
 ---
 
-## 7. 기술 스택
+## 6. 기술 스택
 
 ### Backend
 
@@ -125,7 +118,7 @@ SKN25-3RD-1TEAM/
 
 ---
 
-## 8. 환경 구축 및 실행 방법
+## 7. 환경 구축 및 실행 방법
 
 ### 환경 구축
 ```bash
@@ -144,7 +137,7 @@ python -m entrypoint.query
 
 ---
 
-## 9. 향후 개발 계획
+## 8. 향후 개발 계획
 
 ---
 
