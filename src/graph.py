@@ -8,12 +8,12 @@ from src.nodes import (
     generate_node,
     nearest_center_node,
     self_repair_classifier_node,
+    fallback_node,
     self_repair_guide_node,
     route_question,
     check_hallucination_routing,
     route_after_self_repair_check,
-    route_issue_type,
-    fallback_node
+    route_issue_type
 )
 
 
@@ -30,7 +30,7 @@ def build_cs_rag_graph():
     workflow.add_node("nearest_center_node", nearest_center_node)
     workflow.add_node("self_repair_classifier_node", self_repair_classifier_node)
     workflow.add_node("self_repair_guide_node", self_repair_guide_node)
-    workflow.add_node("fallback_node", fallback_node)
+    workflow.add_node("fallback_node", fallback_node)  # ← 추가
 
     # ==========================================
     # 3. 조건부 Edge 연결 (라우팅)
@@ -50,8 +50,6 @@ def build_cs_rag_graph():
         route_issue_type, 
         {
             "generate_node": "generate_node",
-            "nearest_center_node": "nearest_center_node",
-            "self_repair_classifier_node": "self_repair_classifier_node",
             "fallback_node": "fallback_node"
         }
     )
@@ -70,8 +68,8 @@ def build_cs_rag_graph():
     workflow.add_edge("chat_node", END)                 # 일상 대화 끝나면 종료
     workflow.add_edge("generate_node", END)
     workflow.add_edge("self_repair_guide_node", END)    # 가이드 제공 끝나면 종료
-    workflow.add_edge("nearest_center_node", END)       # 센터 안내 끝나면 종료
-    workflow.add_edge("fallback_node", END)             # 예외 처리 끝나면 종료
+    workflow.add_edge("nearest_center_node", END)  
+    workflow.add_edge("fallback_node", END)     # 센터 안내 끝나면 종료
 
     # ==========================================
     # 5. 그래프 컴파일
