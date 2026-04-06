@@ -202,13 +202,16 @@ def retrieve_node(state: GraphState) -> GraphState:
     bm25_docs = bm25_retriever.invoke(question)
     
     # 3. 두 결과 합치기 (중복 제거)
+    retrieved_contexts = [] #평가용
     seen_titles = set()
+    
     combined_docs = []
     for d in vector_docs + bm25_docs:
         title = d.metadata.get('title', '')
         if title not in seen_titles:
             seen_titles.add(title)
             combined_docs.append(d)
+            retrieved_contexts.append(content) #평가용
     
     print(f"검색 쿼리: {converted_query}")
     for i, d in enumerate(combined_docs[:5]):
@@ -224,7 +227,12 @@ def retrieve_node(state: GraphState) -> GraphState:
             context_list.append(f"[{title}]\n{content}")
         context = "\n\n".join(context_list)
  
-    return {"context": context, "relevance_score": float(top_score)}
+    return {
+        "context": context,
+        "relevance_score": float(top_score),
+        "question": question, #평가용
+        "retrieved_contexts": retrieved_contexts, #평가용
+    }
  
 def generate_node(state: GraphState) -> GraphState:
     print("---NODE: 1차 답변 생성---")
@@ -278,9 +286,15 @@ def generate_node(state: GraphState) -> GraphState:
     response = llm.invoke(prompt)
     return {
         "messages": [("assistant", response.content)],
-        "source_document": "내부 매뉴얼", 
+        "source_document": "내부 매뉴얼",
         "reliability_score": 0.9,
-        "show_resolution_buttons": True  # ← 추가
+        "show_resolution_buttons": True,
+        #평가용(아래)
+        "eval_data": {
+            "question": state.get("question", ""),
+            "answer": response.content,
+            "contexts": state.get("retrieved_contexts", []),
+        }
     }
  
 def self_repair_classifier_node(state: GraphState) -> GraphState:
