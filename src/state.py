@@ -13,3 +13,10 @@ class GraphState(TypedDict):
     device_model: Optional[str]      # 예: "Galaxy S22"
     is_hardware_issue: bool          # 물리적 파손 여부 (True/False)
     waiting_for_repair_choice: bool  # 가이드 제공 여부 플래그
+
+
+    # --- 평가용 상태 추가 ---
+    question: str
+    retrieved_contexts: list[str]
+    answer: str
+    eval_data: dict

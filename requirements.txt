@@ -23,6 +23,8 @@ python-dotenv>=1.0.1
 emoji==2.15.0
 
 openpyxl==3.1.5
-pypdf=6.9.1
+pypdf==6.9.1
 
 pymongo[srv]==3.12
+
+deepeval==3.9.5

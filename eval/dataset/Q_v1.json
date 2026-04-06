@@ -1,0 +1,60 @@
+[
+  { "id": 1, "question": "배터리가 너무 빨리 닳아요.", "category": "battery", "selected_device": "선택하지 않음" },
+  { "id": 2, "question": "충전이 잘 안돼요.", "category": "charging", "selected_device": "선택하지 않음" },
+  { "id": 3, "question": "와이파이가 자꾸 끊겨요.", "category": "wifi", "selected_device": "선택하지 않음" },
+  { "id": 4, "question": "블루투스 연결이 안돼요.", "category": "bluetooth", "selected_device": "선택하지 않음" },
+  { "id": 5, "question": "지문 인식이 잘 안돼요.", "category": "fingerprint", "selected_device": "선택하지 않음" },
+  { "id": 6, "question": "얼굴 인식이 안돼요.", "category": "face_recognition", "selected_device": "선택하지 않음" },
+  { "id": 7, "question": "스피커에서 소리가 안 나요.", "category": "speaker", "selected_device": "선택하지 않음" },
+  { "id": 8, "question": "마이크가 잘 안 들린다고 해요.", "category": "microphone", "selected_device": "선택하지 않음" },
+  { "id": 9, "question": "터치가 잘 안 먹어요.", "category": "touch", "selected_device": "선택하지 않음" },
+  { "id": 10, "question": "카메라가 흐리게 보여요.", "category": "camera", "selected_device": "선택하지 않음" },
+
+  { "id": 11, "question": "폰이 이상해요.", "category": "ambiguous", "selected_device": "선택하지 않음" },
+  { "id": 12, "question": "갑자기 문제가 생겼어요.", "category": "ambiguous", "selected_device": "선택하지 않음" },
+  { "id": 13, "question": "왜 이러는지 모르겠어요.", "category": "ambiguous", "selected_device": "선택하지 않음" },
+  { "id": 14, "question": "자꾸 이상하게 작동해요.", "category": "ambiguous", "selected_device": "선택하지 않음" },
+  { "id": 15, "question": "뭔가 잘 안돼요.", "category": "ambiguous", "selected_device": "선택하지 않음" },
+
+  { "id": 16, "question": "충전기를 꽂으면 배터리가 줄어들어요.", "category": "edge_case", "selected_device": "선택하지 않음" },
+  { "id": 17, "question": "배터리가 100%인데 갑자기 꺼져요.", "category": "edge_case", "selected_device": "선택하지 않음" },
+  { "id": 18, "question": "폰이 혼자 재부팅돼요.", "category": "edge_case", "selected_device": "선택하지 않음" },
+  { "id": 19, "question": "화면이 깜빡이다가 꺼져요.", "category": "edge_case", "selected_device": "선택하지 않음" },
+  { "id": 20, "question": "충전 중인데 충전 표시가 안 떠요.", "category": "edge_case", "selected_device": "선택하지 않음" },
+  { "id": 21, "question": "앱을 실행하면 바로 꺼져요.", "category": "edge_case", "selected_device": "선택하지 않음" },
+  { "id": 22, "question": "터치가 지 멋대로 눌려요.", "category": "edge_case", "selected_device": "선택하지 않음" },
+
+  { "id": 23, "question": "충전은 되는데 배터리가 계속 줄어요.", "category": "complex", "selected_device": "선택하지 않음" },
+  { "id": 24, "question": "와이파이는 연결되는데 인터넷이 안돼요.", "category": "complex", "selected_device": "선택하지 않음" },
+  { "id": 25, "question": "앱은 켜지는데 바로 꺼져요.", "category": "complex", "selected_device": "선택하지 않음" },
+
+  { "id": 26, "question": "액정이 깨졌는데 직접 고칠 수 있어요?", "category": "self_repair", "selected_device": "선택하지 않음" },
+  { "id": 27, "question": "배터리 교체를 내가 할 수 있나요?", "category": "self_repair", "selected_device": "선택하지 않음" },
+  { "id": 28, "question": "부품만 사서 수리해도 되나요?", "category": "self_repair", "selected_device": "선택하지 않음" },
+  { "id": 29, "question": "자가 수리 방법 알려주세요.", "category": "self_repair", "selected_device": "선택하지 않음" },
+  { "id": 30, "question": "이거 직접 고치면 문제 없나요?", "category": "self_repair", "selected_device": "선택하지 않음" },
+
+  { "id": 31, "question": "아이폰인데 삼성 서비스 받을 수 있나요?", "category": "out_of_scope", "selected_device": "선택하지 않음" },
+  { "id": 32, "question": "세탁기 고장났어요.", "category": "out_of_scope", "selected_device": "선택하지 않음" },
+  { "id": 33, "question": "노트북도 여기서 수리되나요?", "category": "out_of_scope", "selected_device": "선택하지 않음" },
+  { "id": 34, "question": "TV 문제도 상담 가능한가요?", "category": "out_of_scope", "selected_device": "선택하지 않음" },
+  { "id": 35, "question": "다른 브랜드도 수리되나요?", "category": "out_of_scope", "selected_device": "선택하지 않음" },
+
+  { "id": 36, "question": "발열이 너무 심해요.", "category": "hardware", "selected_device": "선택하지 않음" },
+  { "id": 37, "question": "충전하면 폰이 뜨거워져요.", "category": "hardware", "selected_device": "선택하지 않음" },
+  { "id": 38, "question": "배터리가 부풀어 오른 것 같아요.", "category": "hardware", "selected_device": "선택하지 않음" },
+  { "id": 39, "question": "충전 단자가 헐거워요.", "category": "hardware", "selected_device": "선택하지 않음" },
+  { "id": 40, "question": "전원이 아예 안 켜져요.", "category": "hardware", "selected_device": "선택하지 않음" },
+
+  { "id": 41, "question": "앱이 자꾸 멈춰요.", "category": "software", "selected_device": "선택하지 않음" },
+  { "id": 42, "question": "업데이트 이후로 오류가 생겼어요.", "category": "software", "selected_device": "선택하지 않음" },
+  { "id": 43, "question": "앱 실행이 안돼요.", "category": "software", "selected_device": "선택하지 않음" },
+  { "id": 44, "question": "알림이 안 와요.", "category": "software", "selected_device": "선택하지 않음" },
+  { "id": 45, "question": "데이터는 켜져 있는데 인터넷이 안돼요.", "category": "software", "selected_device": "선택하지 않음" },
+
+  { "id": 46, "question": "서비스센터 어디에 있어요?", "category": "center", "selected_device": "선택하지 않음" },
+  { "id": 47, "question": "수리 맡기려면 어떻게 해야 하나요?", "category": "center", "selected_device": "선택하지 않음" },
+  { "id": 48, "question": "수리 비용은 얼마나 나올까요?", "category": "center", "selected_device": "선택하지 않음" },
+  { "id": 49, "question": "방문 예약해야 하나요?", "category": "center", "selected_device": "선택하지 않음" },
+  { "id": 50, "question": "근처 서비스센터 알려주세요.", "category": "center", "selected_device": "선택하지 않음" }
+]

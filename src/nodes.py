@@ -170,6 +170,8 @@ def retrieve_node(state: GraphState) -> GraphState:
     top_docs = vector_store.as_retriever(search_kwargs={"k": 2}).invoke(search_query)
     
     # 2. Context 구성 
+    retrieved_contexts = []
+    
     if not top_docs:
         context = "검색된 문서 없음"
     else:
@@ -181,7 +183,10 @@ def retrieve_node(state: GraphState) -> GraphState:
         
         context = "\n\n".join(context_list)
 
-    return {"context": context}
+    return {"context": context,
+            # --- 평가용 추가 --- 
+            "question": question,
+            "retrieved_contexts": retrieved_contexts,}
  
 def generate_node(state: GraphState) -> GraphState:
     print("---NODE: 1차 답변 생성---")
@@ -209,12 +214,17 @@ def generate_node(state: GraphState) -> GraphState:
 
 답변:"""
     response = llm.invoke(prompt)
+    
     return {
-        "messages": [("assistant", response.content)],
-        "source_document": "내부 매뉴얼", 
-        "reliability_score": 0.9
+    "messages": [("assistant", response.content)],
+    "source_document": "내부 매뉴얼",
+    "reliability_score": 0.9,
+    "eval_data": {
+        "question": state.get("question", ""),
+        "answer": response.content,
+        "contexts": state.get("retrieved_contexts", []),
     }
- 
+}
 def self_repair_classifier_node(state: GraphState) -> GraphState:
     """하드웨어 문제 시, 기기 모델명, 하드웨어 여부, 그리고 사용자의 '자가수리 의향'을 동시에 추출합니다."""
     print("---NODE: 자가수리 분류기 (기기, 파손, 수리의향 동시 판별)---")
