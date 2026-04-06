@@ -1,21 +1,25 @@
-# SKN25-3rd-1Team
-환경 구축
-uv venv --python 3.12.12
+# 🤖 [프로젝트 제목]
 
+**팀명 : SKN25-3rd-1Team**
 
-entrypoint에서 ingest 실행
-python -m entrypoint.ingest
+## 👥 팀원
 
-entrypoint에서 ingest 실행
-python -m entrypoint.query
+| 이름 | 이름 | 이름 | 이름 | 이름 |
+| --- | --- | --- | --- | --- |
 
+---
 
+## 1. 프로젝트 소개 및 목표
 
+### 1.1 프로젝트 소개
 
+### 1.2 목표
 
-## 📁 디렉토리 구조 (Directory Structure)
+---
 
-```text
+## 2. 프로젝트 디렉토리 구조
+
+```
 SKN25-3RD-1TEAM/
 ├── .venv/                             # 파이썬 가상 환경 (Git 추적 제외)
 ├── data/                              # 데이터 및 DB 폴더 (Git 추적 제외)
@@ -41,7 +45,7 @@ SKN25-3RD-1TEAM/
 │   ├── draw_graph.py                  # LangGraph 구조 시각화 스크립트
 │   ├── graph.py                       # LangGraph 워크플로우 구성
 │   ├── nodes.py                       # LangGraph의 각 노드 정의
-│   └── state.py                       # GraphState  구조 정의
+│   └── state.py                       # GraphState 구조 정의
 ├── .env                               # 로컬 환경 변수 파일 (Git 추적 제외)
 ├── .env.example                       # 환경 변수 템플릿 파일
 ├── .gitignore                         # Git 추적 예외 처리 파일
@@ -49,3 +53,122 @@ SKN25-3RD-1TEAM/
 ├── Makefile                           # 빌드 및 실행 자동화 명령어 모음
 ├── README.md                          # 프로젝트 설명서
 └── requirements.txt                   # 파이썬 의존성 패키지 목록
+```
+
+---
+
+## 3. 시스템 아키텍처
+
+![architecture](architecture.png)
+
+---
+
+## 4. 데이터 파이프라인
+
+---
+
+## 5. 모듈별 상세 설명
+
+### 5.1 ingestion_pipeline.py
+
+**역할**
+
+### 5.2 embedding_pipeline.py
+
+**역할**
+
+### 5.3 generation_pipeline.py
+
+**역할**
+
+### 5.4 nodes.py
+
+**역할**
+
+### 5.5 graph.py
+
+**역할**
+
+---
+
+## 6. 시연 결과
+
+### 6.1 [시연 케이스 제목]
+
+![시연결과](이미지경로)
+
+### 6.2 [시연 케이스 제목]
+
+![시연결과](이미지경로)
+
+---
+
+## 7. 기술 스택
+
+### Backend
+
+| 구분 | 기술 | 설명 |
+| --- | --- | --- |
+| | | |
+
+### Frontend
+
+| 구분 | 기술 | 설명 |
+| --- | --- | --- |
+| | | |
+
+### Data & Storage
+
+| 구분 | 기술 | 설명 |
+| --- | --- | --- |
+| | | |
+
+---
+
+## 8. 환경 구축 및 실행 방법
+
+### 환경 구축
+```bash
+uv venv --python 3.12.12
+```
+
+### 데이터 적재
+```bash
+python -m entrypoint.ingest
+```
+
+### 실행
+```bash
+python -m entrypoint.query
+```
+
+---
+
+## 9. 향후 개발 계획
+
+---
+
+## 💬 한 줄 회고
+
+> #### 이름
+>
+
+---
+
+> #### 이름
+>
+
+---
+
+> #### 이름
+>
+
+---
+
+> #### 이름
+>
+
+---
+
+> #### 이름
+>
