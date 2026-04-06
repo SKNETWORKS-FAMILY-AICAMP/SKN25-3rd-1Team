@@ -1,10 +1,11 @@
-from typing import TypedDict, Optional
+from typing import TypedDict, Annotated, Optional
+from langgraph.graph.message import add_messages
+from langchain_core.messages import AnyMessage
 
 class GraphState(TypedDict):
-    question: str
+    messages: Annotated[list[AnyMessage], add_messages]
     selected_device: str             # 사용자가 사전 선택한 기기명 (예: "갤럭시 S24", "선택하지 않음")
     context: str
-    answer: str
     source_document: str
     reliability_score: float
     

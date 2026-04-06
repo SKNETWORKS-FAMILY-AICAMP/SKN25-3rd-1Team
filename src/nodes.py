@@ -3,30 +3,35 @@ from pydantic import BaseModel, Field
 from typing import Literal, Optional
 from langchain_openai import ChatOpenAI
 from langchain_core.prompts import PromptTemplate
+from langchain_core.messages import SystemMessage, HumanMessage, AIMessage
 from src.state import GraphState
 from src.pipelines.embedding_pipeline import get_vector_store
-import json # <-- 추가
+from src.pipelines.self_repair_rag_pipeline import make_rag_chain, get_available_models
+
+import json
 import pickle
 from langchain_community.retrievers import BM25Retriever
 import requests
 from dotenv import load_dotenv
+
 load_dotenv()
+
 KAKAO_API_KEY = os.getenv("KAKAO_API_KEY")
 
+def load_self_repair_json_str():
+    file_path = os.path.join("data", "processed", "self-repair-list.json")
+    with open(file_path, "r", encoding="utf-8") as f:
+        return f.read()
 
 def load_self_repair_models():
-    """self-repair-list.json 파일을 읽어서 모든 모델명을 1차원 리스트로 반환합니다."""
     file_path = os.path.join("data", "processed", "self-repair-list.json")
-
-
     with open(file_path, "r", encoding="utf-8") as f:
         data = json.load(f)
-        
-    all_models = []
-    for series, models in data.items():
-        all_models.extend(models)
-    return all_models # ['S20', 'S20 Plus', 'S20 Ultra', 'S21' ...]
-
+    
+    models = []
+    for model_list in data.values():
+        models.extend(model_list)
+    return models
 
 
 # 공통으로 사용할 LLM (정확한 판단을 위해 temperature=0.0 유지)
@@ -66,7 +71,8 @@ def route_question(state: GraphState) -> str:
     
     # 일반적인 새 질문인 경우
     structured_llm = llm.with_structured_output(RouteQuery)
-    result = structured_llm.invoke(state["question"])
+    # 멀티턴 컨텍스트를 위해 히스토리 제공
+    result = structured_llm.invoke(state["messages"])
     
     if result.intent == "greeting":
         return "chat_node"
@@ -76,31 +82,36 @@ def route_question(state: GraphState) -> str:
 # ==========================================
 # [3] 실제 작업을 수행하는 노드들 (Nodes)
 # ==========================================
-
 def chat_node(state: GraphState) -> GraphState:
     print("---NODE: 일반 대화---")
     
-    prompt = f"""당신은 삼성전자 서비스센터의 전문적이고 친절한 인공지능 어시스턴트입니다.
-고객이 인사를 하거나 일반적인 질문, 잡담을 시도하고 있습니다. 
-따뜻하고 정중한 톤으로 응답하며, 서비스 문의나 기술적으로 도와드릴 일이 있는지 물어보세요.
-
+    # 5턴까지의 대화 내역 추출
+    history_text = "\n".join([f"{'사용자' if msg.type=='human' else '상담원'}: {msg.content}" for msg in state["messages"][-5:]])
+    
+    prompt = f"""당신은 삼성전자 갤럭시 고객 서비스 어시스턴트입니다.
+고객의 인사나 일상 대화에 친절하고 따뜻하게 응대하세요.
+주어진 대화 맥락을 파악하고, 자연스럽게 기기 관련 문의로 유도하세요.
+ 
 [고객 사전 선택 정보]
 선택한 기기: {state.get("selected_device", "선택하지 않음")}
+ 
+[최근 대화 기록]
+{history_text}
 
-고객의 메시지: {state['question']}
-"""
+답변:"""
     response = llm.invoke(prompt)
     
     return {
-        "answer": response.content, 
+        "messages": [("assistant", response.content)], 
         "source_document": "대화형 AI", 
         "reliability_score": 1.0
     }
+ 
 
 
 def retrieve_node(state: GraphState) -> GraphState:
     print("---NODE: 문서 검색 (Vector DB 단독)---")
-    question = state["question"]
+    question = state["messages"][-1].content
     selected_device = state.get("selected_device", "선택하지 않음")
     
     # 1. Chroma DB (벡터 검색) 호출
@@ -123,31 +134,39 @@ def retrieve_node(state: GraphState) -> GraphState:
         context = "\n\n".join(context_list)
 
     return {"context": context}
-
+ 
 def generate_node(state: GraphState) -> GraphState:
     print("---NODE: 1차 답변 생성---")
     
-    prompt = f"""당신은 삼성전자 제품의 문제를 해결해주는 최고의 기술 지원 AI 어시스턴트입니다.
-사용자가 제기한 문제(소프트웨어 오류, 기기 설정, 사용법 등)에 대해 아래 [관련 매뉴얼 문서]를 참조하여 명확하고 친절한 해결책을 제시하세요.
-- 매뉴얼에 없는 내용을 임의로 지어내지 마세요.
-- 단계별로 쉽게 따라할 수 있도록 설명해 주세요.
-
+    history_text = "\n".join([f"{'사용자' if msg.type=='human' else '상담원'}: {msg.content}" for msg in state["messages"][-5:]])
+    
+    prompt = f"""당신은 삼성전자 제품 전문 기술 지원 AI 어시스턴트입니다.
+아래 [규칙]을 반드시 지켜서 고객 문의에 답변하세요.
+ 
+[규칙]
+1. 반드시 아래 제공된 [관련 매뉴얼 문서] 내용에만 근거하여 답변하세요.
+2. 이전 대화 맥락(최근 대화 기록)을 고려하여 답변하세요.
+3. 문서에 없는 내용은 절대 지어내거나 추측하지 마세요. 문서에 내용이 없으면 "제공된 정보에서 해당 내용을 찾을 수 없습니다." 라고 답하세요.
+4. 전문 용어는 쉽게 풀어서 설명하세요.
+5. 해결 방법을 번호로 단계별 안내하고, 마지막에 추가 도움 안내 문구를 덧붙이세요.
+  
 [고객 사전 선택 정보]
 선택한 기기: {state.get("selected_device", "선택하지 않음")}
-
+ 
 [관련 매뉴얼 문서]
-{state['context']}
+{state.get('context', '문서 없음')}
+ 
+[최근 대화 기록]
+{history_text}
 
-고객의 문의 내용: {state['question']}
-"""
+답변:"""
     response = llm.invoke(prompt)
-    return {"answer": response.content, "source_document": "내부 매뉴얼", "reliability_score": 0.9}
-
-def load_self_repair_json_str():
-    file_path = os.path.join("data", "processed", "self-repair-list.json")
-    with open(file_path, "r", encoding="utf-8") as f:
-        return f.read()
-
+    return {
+        "messages": [("assistant", response.content)],
+        "source_document": "내부 매뉴얼", 
+        "reliability_score": 0.9
+    }
+ 
 def self_repair_classifier_node(state: GraphState) -> GraphState:
     """하드웨어 문제 시, 기기 모델명, 하드웨어 여부, 그리고 사용자의 '자가수리 의향'을 동시에 추출합니다."""
     print("---NODE: 자가수리 분류기 (기기, 파손, 수리의향 동시 판별)---")
@@ -175,13 +194,13 @@ def self_repair_classifier_node(state: GraphState) -> GraphState:
    - '센터 갈래', '센터 찾아줘', '예약해줘' 등 센터 방문 의지면 'center_visit'
    - 단순히 고장을 호소하며 어떻게 할지 묻기만 하거나 의향이 모호하다면 'unknown'
 
-사용자 질문: {state.get("question", "")}
 관련 문서: {state.get("context", "")}
 """
     
     # 3. LLM 호출
+    sys_msg = SystemMessage(content=prompt)
     structured_llm = llm.with_structured_output(SelfRepairExtraction)
-    result = structured_llm.invoke(prompt)
+    result = structured_llm.invoke([sys_msg] + state["messages"])
     
     device_model = result.device_model
     is_hw = result.is_hardware_issue
@@ -198,7 +217,8 @@ def self_repair_classifier_node(state: GraphState) -> GraphState:
             cleaned_device_model = device_model.lower().replace(" ", "").replace("galaxy", "갤럭시").replace("울트라", "ultra").replace("플러스", "plus")
             for m in repair_models_list:
                 cleaned_m = m.lower().replace(" ", "").replace("galaxy", "갤럭시").replace("울트라", "ultra").replace("플러스", "plus")
-                if cleaned_m in cleaned_device_model or cleaned_device_model in cleaned_m:
+                # 소문자 변환 후 완전히 일치하거나, 이름 끝부분이 완전히 일치하는지 확인 (s22 가 s22ultra 에 잘못 매칭되는 것 방지)
+                if cleaned_device_model == cleaned_m or cleaned_device_model.endswith(cleaned_m) or cleaned_m.endswith(cleaned_device_model):
                     is_repairable = True
                     device_model = m # 공식 명칭으로 교체
                     break
@@ -207,36 +227,41 @@ def self_repair_classifier_node(state: GraphState) -> GraphState:
         "device_model": device_model,
         "is_hardware_issue": is_hw,
         "waiting_for_repair_choice": is_repairable and user_intent == "self_repair", 
-        "answer": ""
     }
+
 
 def self_repair_guide_node(state: GraphState) -> GraphState:
     """사용자가 자가수리를 선택했을 때의 최종 가이드 출력"""
     print("---NODE: 자가수리 매뉴얼 검색 및 안내---")
-    device_model = state.get('device_model', '해당 기기')
+    device_model = state.get('device_model')
+    if not device_model or device_model == '해당 기기':
+        device_model = None
+    question = state["messages"][-1].content
     
-    # self-repair 컬렉션에서 해당 기기의 매뉴얼 문서 검색
+    # self-repair 컬렉션에서 벡터스토어 로드
     vector_store = get_vector_store("self-repair")
-    search_query = f"{device_model} 자가수리 매뉴얼 부품" # query 작성...
-    #자가수리 데이터 RAG로 추가
-    docs = vector_store.as_retriever(search_kwargs={"k": 2}).invoke(search_query)
     
-    # 검색된 문서 내용 조립
-    if docs:
-        retrieved_guide = "\n\n".join([f"📖 [{d.metadata.get('title', '매뉴얼')}] \n{d.page_content}" for d in docs])
-    else:
-        retrieved_guide = "- 관련 매뉴얼을 찾을 수 없습니다. 삼성전자 공식 홈페이지를 참고해 주세요."
-        
+    try:
+        available_models = get_available_models(vectorstore=vector_store)
+    except Exception:
+        available_models = []
+
+    chain, _ = make_rag_chain(vector_store, available_models, session_model=device_model, k=8)
+    
+    # RAG 체인 호출로 답변 생성
+    answer = chain.invoke(question)
+    
     # 최종 가이드 텍스트 조립
+    device_display = device_model if device_model else "해당 기기"
     guide_text = (
-        f"🛠️ **[{device_model} 자가수리 가이드]**\n\n"
-        f"{retrieved_guide}\n\n"
+        f"🛠️ **[{device_display} 자가수리 가이드]**\n\n"
+        f"{answer}\n\n"
         " **주의사항:** 수리 중 발생하는 추가 파손은 무상 수리 대상에서 제외될 수 있으니, "
         "반드시 절연 장갑을 착용하고 안전 수칙을 준수해 주세요."
     )
     
     # 가이드를 줬으므로 대기 상태 해제
-    return {"answer": guide_text, "waiting_for_repair_choice": False}
+    return {"messages": [("assistant", guide_text)], "waiting_for_repair_choice": False}
 
 import requests
 import os
@@ -250,8 +275,8 @@ def get_kakao_nearest_centers(lat: float, lng: float) -> str:
     
     params = {
         "query": "삼성전자 서비스센터",
-        "y": 37.498095, 
-        "x": 127.027610,
+        "y": 35.179554,   # 부산광역시청 위도
+        "x": 129.075641,  # 부산광역시청 경도
         "radius": 5000,
         "sort": "distance"
     }
@@ -286,8 +311,6 @@ def get_kakao_nearest_centers(lat: float, lng: float) -> str:
 def nearest_center_node(state: dict) -> dict: # LangGraph State 타입
     print("---NODE: 동적 센터 방문 안내 수행 (카카오 API)---")
     
-    # State에서 사용자의 위치 정보를 가져옵니다.
-    # (프론트엔드에서 브라우저 API로 받아온 좌표값을 state에 넣어주면 됩니다)
     user_lat = state.get("latitude", 37.4952) 
     user_lng = state.get("longitude", 127.0276)
     
@@ -297,7 +320,7 @@ def nearest_center_node(state: dict) -> dict: # LangGraph State 타입
         dynamic_answer = "안되는디요"
         
     return {
-        "answer": dynamic_answer, 
+        "messages": [("assistant", dynamic_answer)], 
         "source_document": "위치 기반 오프라인 센터 안내",
         "reliability_score": 1.0,
         "waiting_for_repair_choice": False
@@ -307,31 +330,27 @@ def route_issue_type(state: GraphState) -> str:
     
     prompt = f"""사용자의 질문이 어떤 유형에 속하는지 분류하세요.
 [사전 선택 기기: {state.get("selected_device", "선택하지 않음")}]
-사용자 질문: {state['question']}
 
 분류 지침:
-아래에 해당하는 증상이나 문의는 모두 'software' 로 분류하세요:
-- 전원/배터리/충전 (예: 발열 현상, 배터리 소모 심함 등)
-- 블루투스
-- 멈춤/오류/재시작
-- 시스템 설정
-- 데이터 이동
-- 네트워크/WI-FI
-- 카메라/갤러리 앱 오류 및 기능 문의
-- 디스플레이 (화면 설정, 다크모드 등)
-- 애플리케이션 (앱 설치, 삭제, 오류)
-- 전화/문자 (통화 품질, 수발신 문제 등)
-- 센서/터치 설정 및 오류
-- 소리/진동 설정
-- 업데이트 (OS, SW 업데이트)
-- 사양/구성품 문의
-- 액세서리
-- 이동통신사 서비스
-- 기타/주의사항
+1. 'hardware' (하드웨어 문제 및 수리):
+- 디스플레이 액정 파손, 뒷판/후면 커버 파손 등 물리적 파손
+- "교체", "자가수리", "수리", "분해", "부품" 등의 단어가 포함되거나 스스로 고치기를 원하는 경우
+- 배터리 교체 문의 (배터리 소모가 아니라 '교체'나 물리적인 장착/탈착을 의미할 때)
+
+2. 'software' (소프트웨어 및 설정, 사용법 등):
+- 전원/배터리/충전 (단순 배터리 소모 심함, 충전 안됨, 발열 등)
+- 블루투스, 멈춤/오류/재시작, 시스템 설정, 데이터 이동
+- 네트워크/WI-FI, 카메라/갤러리 앱 오류, 디스플레이 화면 설정/다크모드
+- 애플리케이션 설치/오류, 전화/문자 수발신 문제, 센서/터치/소리/진동 설정
+- 업데이트, 사양/구성품/액세서리 문의, 동기화 기타 주의사항
+
+3. 'center_visit' (서비스센터 방문 응급):
+- 당장 서비스센터 위치를 묻거나 예약을 요구할 때
 """
     
+    sys_msg = SystemMessage(content=prompt)
     structured_llm = llm.with_structured_output(IssueTypeCheck)
-    result = structured_llm.invoke(prompt)
+    result = structured_llm.invoke([sys_msg] + state["messages"])
     
     if result.issue_type == "software":
         return "generate_node"

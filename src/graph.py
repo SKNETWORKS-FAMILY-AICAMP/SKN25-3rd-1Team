@@ -1,4 +1,5 @@
 from langgraph.graph import StateGraph, START, END
+from langgraph.checkpoint.memory import MemorySaver
 from src.state import GraphState
 
 from src.nodes import (
@@ -71,7 +72,8 @@ def build_cs_rag_graph():
     # ==========================================
     # 5. 그래프 컴파일
     # ==========================================
-    app = workflow.compile()
+    memory = MemorySaver()
+    app = workflow.compile(checkpointer=memory)
     
     return app
 
