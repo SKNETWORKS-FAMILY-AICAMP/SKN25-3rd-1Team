@@ -51,8 +51,9 @@ def build_cs_rag_graph():
         route_issue_type, 
         {
             "generate_node": "generate_node",
+            "fallback_node": "fallback_node",
             "self_repair_classifier_node": "self_repair_classifier_node",
-            "fallback_node": "fallback_node"
+            "nearest_center_node": "nearest_center_node"
         }
     )
     workflow.add_conditional_edges(
