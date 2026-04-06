@@ -7,7 +7,7 @@ import pandas as pd
 from api.client import get_chat_response
 
 # =========================================================
-# 1. 데이터 로드 로직 (운구님 로직 100% 유지 + 안전장치)
+# 1. 데이터 로드 로직
 # =========================================================
 @st.cache_data
 def load_device_data():
@@ -21,10 +21,7 @@ def load_device_data():
 @st.cache_data
 def load_faq_data():
     base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    candidate_paths = [
-        os.path.join(base_dir, "data", "processed", "faq", "faq_data_v4.csv"),
-        os.path.join(base_dir, "data", "processed", "faq", "faq_data_v3.csv"),
-    ]
+    candidate_paths = [os.path.join(base_dir, "data", "processed", "faq", "faq_data_v4.csv")]
     for path in candidate_paths:
         if os.path.exists(path):
             try:
@@ -57,9 +54,12 @@ st.markdown("""
 <style>
 @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
 
-* { font-family: 'Pretendard', sans-serif !important; box-sizing: border-box; }
+* {box-sizing: border-box; }
+.stApp, .stApp [data-testid="stChatMessageContent"] {
+    font-family: 'Pretendard', sans-serif;
+}
 .stApp { background-color: #F8FAFC !important; }
-header, footer, [data-testid="stToolbar"] { display: none !important; }
+footer { display: none !important; }
 
 .block-container {
     max-width: 950px !important;
@@ -113,9 +113,9 @@ header, footer, [data-testid="stToolbar"] { display: none !important; }
 }
 
 div[data-popq] .stButton > button {
-    background-color: #FFFFFF !important;
-    color: #334155 !important;
-    border: 1px solid #E2E8F0 !important;
+    background-color: #F0F7FF !important;
+    color: #1E40AF !important;
+    border: 1px solid #BFDBFE !important;
     border-radius: 12px !important;
     height: 100px !important; 
     width: 100% !important;
@@ -134,11 +134,13 @@ div[data-popq] .stButton > button {
 }
 
 div[data-popq] .stButton > button:hover {
+    background-color: #DBEAFE !important;
     border-color: #3B82F6 !important;
-    color: #3B82F6 !important;
+    color: #2563EB !important;
     transform: translateY(-2px);
     box-shadow: 0 6px 12px rgba(0,0,0,0.05) !important;
 }
+
 
 /* 인기 질문 버튼 텍스트 말줄임 처리 (Image 1 스타일) */
 div[data-popq] .stButton > button > div > p {
@@ -155,12 +157,29 @@ div[data-popq] .stButton > button > div > p {
     border-radius: 15px !important;
 }
 
-/* 자주 묻는 질문 스타일 */
-.faq-subtitle {
-    font-size: 0.9rem;
-    color: #94A3B8;
-    margin-top: -0.5rem;
-    margin-bottom: 2rem;
+/* 모든 버튼 전역 스타일 (세련된 파란색) */
+.stButton > button {
+    border-radius: 8px !important;
+    font-weight: 600 !important;
+    transition: all 0.2s !important;
+}
+
+/* Secondary 버튼 보완 */
+.stButton > button[kind="secondary"] {
+    background-color: #F1F5F9 !important;
+    color: #475569 !important;
+    border: 1px solid #E2E8F0 !important;
+}
+
+.stButton > button[kind="secondary"]:hover {
+    background-color: #DBEAFE !important;
+    color: #2563EB !important;
+    border-color: #3B82F6 !important;
+}
+
+/* Primary 버튼은 기본 테마(보통 파랑) 유지하되 라운드값 조정 */
+.stButton > button[kind="primary"] {
+    border-radius: 8px !important;
 }
 </style>
 """, unsafe_allow_html=True)
