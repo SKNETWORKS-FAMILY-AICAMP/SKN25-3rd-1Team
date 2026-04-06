@@ -7,6 +7,7 @@ openai>=1.20.0
 
 # --- Vector Database ---
 chromadb>=0.5.0
+rank-bm25==0.2.2
 
 # --- Backend API (FastAPI) ---
 fastapi>=0.110.1
