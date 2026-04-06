@@ -7,6 +7,7 @@ openai>=1.20.0
 
 # --- Vector Database ---
 chromadb>=0.5.0
+rank-bm25==0.2.2
 
 # --- Backend API (FastAPI) ---
 fastapi>=0.110.1
@@ -23,6 +24,6 @@ python-dotenv>=1.0.1
 emoji==2.15.0
 
 openpyxl==3.1.5
-pypdf=6.9.1
+pypdf==6.9.1
 
 pymongo[srv]==3.12
