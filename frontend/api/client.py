@@ -15,20 +15,19 @@ from src.pipelines.generation_pipeline import generate_cs_response
 load_dotenv(os.path.join(root_dir, '.env'))
 
 def get_chat_response(question: str, selected_device: str, thread_id: str = "streamlit_user"):
-    """
-    고객 CS 챗봇 파이프라인 생성 함수 래퍼.
-    질문과 기기 정보를 받아 에이전틱 RAG 파이프라인을 통과시킨 후 답변을 반환합니다.
-    """
     try:
-        # LangGraph를 통해 생성된 결과 딕셔너리 반환
         result = generate_cs_response(question, selected_device, thread_id)
         
         if isinstance(result, dict):
             messages = result.get('messages', [])
-            if messages:
-                return messages[-1].content
-            return "죄송합니다, 답변을 생성하지 못했습니다. 다시 질문해주세요."
-        return "죄송합니다, 내부 연결에 문제가 발생했습니다."
+            answer = messages[-1].content if messages else "죄송합니다, 답변을 생성하지 못했습니다."
+            source = result.get('source_document', '')
+            # generate_node 답변일 때만 버튼 표시
+            show_buttons = source == "내부 매뉴얼" and "찾을 수 없습니다" not in answer
+            print(f"source_document: {source}")
+            print(f"show_buttons: {show_buttons}")
+            return answer, show_buttons
+        return "죄송합니다, 내부 연결에 문제가 발생했습니다.", False
     except Exception as e:
         print(f"API Client Error: {e}")
-        return "오류가 발생하여 답변을 생성할 수 없습니다. 고객센터에 직접 문의해주세요."
+        return "오류가 발생하여 답변을 생성할 수 없습니다.", False
