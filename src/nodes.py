@@ -43,21 +43,18 @@ class RouteQuery(BaseModel):
         description="""이전 대화 맥락 전체를 고려하여 분류하세요.
 - 'greeting': 인사, 잡담, 요약 요청
 - 'cs_query': 새로운 기기 고장이나 서비스 문의. 이전에 센터 안내를 받았더라도 새로운 기기 문제를 언급하면 반드시 'cs_query'로 분류하세요.
-- 'center_visit': 센터 찾기, 예약 요청. 수리 관련 잡담이나 질문은 절대 'center_visit'으로 분류하지 마세요.
-  또는 이전 대화에서 이미 기기 문제 해결을 시도했는데 아직 해결이 안 됐다는 맥락이면 'center_visit'으로 분류하세요.
-"""
+- 'center_visit': 서비스 센터 위치, 예약, 방문 절차에 대한 명시적 요청. (예: 센터 찾아줘, 예약할래)"""
     )
 
 class IssueTypeCheck(BaseModel):
     issue_type: Literal["software", "hardware", "center_visit"] = Field(
-        description="질문이 앱 설정 등 소프트웨어 문제면 'software', 부품/파손 등 하드웨어 문제면 'hardware', 다짜고짜 센터를 찾으면 'center_visit'"
+        description="""기기 문제의 유형을 분류합니다.
+- 'software': 앱 오류, 설정 변경, 발열 등 소프트웨어적 조치로 해결 가능한 문제.
+- 'hardware': 액정 파손, 배터리 교체 등 물리적 분해 및 수리가 필요한 문제.
+- 'center_visit': 기기 상태와 무관하게 서비스 센터 방문을 직접적으로 요구하는 경우."""
     )
  
-class HallucinationCheck(BaseModel):
-    is_grounded: Literal["pass", "fail"] = Field(
-        description="답변이 제공된 문서 내용에만 기반했으면 'pass', 지어낸 내용이 있으면 'fail'"
-    )
- 
+
 class SelfRepairExtraction(BaseModel):
     device_model: str = Field(description="언급된 기기 모델명 (예: Galaxy S22), 없으면 빈 문자열")
     is_hardware_issue: bool = Field(description="액정 파손, 배터리 교체 등 물리적 하드웨어 수리가 필요한지 여부")
@@ -280,7 +277,7 @@ def generate_node(state: GraphState) -> GraphState:
         "messages": [("assistant", response.content)],
         "source_document": "내부 매뉴얼", 
         "reliability_score": 0.9,
-        "show_resolution_buttons": True  # ← 추가
+        "show_resolution_buttons": True  
     }
  
 def self_repair_classifier_node(state: GraphState) -> GraphState:
@@ -290,25 +287,22 @@ def self_repair_classifier_node(state: GraphState) -> GraphState:
     repair_models_list = load_self_repair_models()
     selected_device = state.get("selected_device", "선택하지 않음")
     
-    prompt = f"""
-다음은 사용자의 문의에서 1) 하드웨어 문제인지, 2) 자가수리가 가능한 기기인지, 3) 수리 의향은 무엇인지 종합적으로 분석하는 작업입니다.
- 
-[사용자가 사전에 선택한 기기]
-{selected_device}
- 
-[자가수리 지원 기기 모델 목록]
-{repair_db_str}
- 
-분석 지침:
-1. 기기 모델명 (device_model): 사용자가 사전에 기기를 선택했다면 그것을 우선 고려하되, 질문 내용에서 다른 기기가 명백하게 언급되었다면 질문 속 기기명을 우선 추출하세요. 만약 추출된 기기가 위 [자가수리 지원 기기 모델 목록]에 존재한다면 공식 모델명(예: "S20 Ultra", "갤럭시 Z 플립5")을 명확하게 출력해 주세요. 목록에 없다면 파악된 이름을 그대로 적습니다.
-2. 하드웨어 이슈 (is_hardware_issue): 액정, 뒷면 유리, 배터리 등 물리적인 교체가 필요한 파손/고장인가요?
-3. 사용자 의향 (user_intent): 
-   - '내가 고칠래', '매뉴얼 줘', '부품 줘' 등 본인이 수리하려는 의지면 'self_repair'
-   - '센터 갈래', '센터 찾아줘', '예약해줘' 등 센터 방문 의지면 'center_visit'
-   - 단순히 고장을 호소하며 어떻게 할지 묻기만 하거나 의향이 모호하다면 'unknown'
- 
-관련 문서: {state.get("context", "")}
-"""
+    prompt = f"""사용자 문의를 분석하여 기기 모델명, 하드웨어 문제 여부, 수리 의향을 추출하십시오.
+
+    [데이터]
+    사전 선택 기기: {selected_device}
+    자가수리 지원 목록: {repair_db_str}
+
+    [추출 규칙]
+    1. device_model: 대화에서 언급된 기기명을 추출하십시오. 명시되지 않았다면 사전 선택 기기를 사용하십시오. 자가수리 지원 목록에 포함된 경우 해당 공식 명칭으로 정규화하십시오.
+    2. is_hardware_issue: 부품 교체나 물리적 파손 수리가 필요한 경우 true, 설정이나 소프트웨어 문제인 경우 false로 설정하십시오.
+    3. user_intent: 
+    - 'self_repair': 직접 수리하거나 부품/가이드를 요구하는 경우.
+    - 'center_visit': 오프라인 센터 수리 및 방문을 요구하는 경우.
+    - 'unknown': 단순히 증상만 설명하거나 의도가 불분명한 경우.
+
+    관련 문서: {state.get("context", "")}
+    """
     
     sys_msg = SystemMessage(content=prompt)
     structured_llm = llm.with_structured_output(SelfRepairExtraction)
