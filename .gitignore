@@ -34,7 +34,7 @@ wheels/
 data/
 chroma_db/
 bm25_index/
-
+.deepeval/
 # 혹시 다른 경로에 생성될지 모르는 거대 파일 확장자 전역 차단
 *.pkl
 *.sqlite3
