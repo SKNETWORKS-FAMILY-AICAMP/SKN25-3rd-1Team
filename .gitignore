@@ -35,6 +35,10 @@ data/
 chroma_db/
 bm25_index/
 
+#평가 관련 폴더 무시
+.deepeval/
+eval/results/
+
 # 혹시 다른 경로에 생성될지 모르는 거대 파일 확장자 전역 차단
 *.pkl
 *.sqlite3
@@ -49,3 +53,6 @@ bm25_index/
 .idea/
 .DS_Store
 Thumbs.db
+
+
+
