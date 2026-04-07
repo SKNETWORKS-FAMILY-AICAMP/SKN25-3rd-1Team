@@ -124,8 +124,8 @@ def run():
     references = load_json(REFERENCE_PATH)
     reference_map = build_reference_map(references)
 
-    # deepeval runner처럼 샘플링 원하면 유지
-    questions = random.sample(questions, 30)
+    # 랜덤 샘플링
+    # questions = random.sample(questions, 30)
 
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     print(f"질문 개수: {len(questions)}")
