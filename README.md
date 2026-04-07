@@ -122,7 +122,10 @@ Data Ingestion → Embedding → Vector Store (ChromaDB) → LangGraph Node Logi
 
 ### 시스템 아키텍처 다이어그램
 
-![architecture](MDimages/architecture.png)
+![시스템 아키텍처 1](https://github.com/user-attachments/assets/aab9c9d6-7c14-459a-8d38-e346744cf980)
+
+![시스템 아키텍처 2](https://github.com/user-attachments/assets/b31ebd44-0904-4a02-9444-410e52769fde)
+
 
 ### 기술 스택
 
