@@ -211,7 +211,6 @@ def retrieve_node(state: GraphState) -> GraphState:
         if title not in seen_titles:
             seen_titles.add(title)
             combined_docs.append(d)
-            retrieved_contexts.append(content) #평가용
     
     print(f"검색 쿼리: {converted_query}")
     for i, d in enumerate(combined_docs[:5]):
@@ -225,6 +224,8 @@ def retrieve_node(state: GraphState) -> GraphState:
             title = d.metadata.get('title', 'Unknown')
             content = d.metadata.get('cleaned_content', d.page_content)
             context_list.append(f"[{title}]\n{content}")
+            retrieved_contexts.append(content) #평가용
+
         context = "\n\n".join(context_list)
  
     return {

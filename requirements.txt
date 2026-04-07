@@ -14,7 +14,7 @@ fastapi>=0.110.1
 uvicorn[standard]>=0.29.0
 pydantic>=2.7.0
 
-# --- Frontend  ---
+# --- Frontend ---
 streamlit>=1.33.0
 
 # --- Data Processing & Utilities ---
@@ -22,10 +22,8 @@ pandas>=2.2.2
 requests>=2.31.0
 python-dotenv>=1.0.1
 emoji==2.15.0
-
 openpyxl==3.1.5
 pypdf==6.9.1
-
 pymongo[srv]==3.12
-
-deepeval==3.9.5
+matplotlib==3.10.7
+deepeval>=0.21.0
