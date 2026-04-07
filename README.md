@@ -156,7 +156,50 @@ ChromaDB 배치 적재 (batch_size=150)
     ↓
 BM25 코퍼스 pkl 파일 저장
 ```
+### self_repair_rag_pipeline.py
 
+**역할**
+
+MD 파일을 수리 가이드 특성에 맞게 청킹하여 ChromaDB에 저장하고, Parent Document Retrieval(PDR)로 정밀 검색을 수행하는 핵심 RAG 모듈입니다. `nodes.py`의 `retrieve_node`에서 활용됩니다.
+
+**주요 기능**
+
+| 기능 | 설명 |
+| --- | --- |
+| **헤더 자동 감지** | 모델마다 다른 헤더 레벨(`#` / `##`) 자동 감지 후 통일 처리 |
+| **노이즈 필터링** | 이미지 캡션 잔재, 페이지번호, 차례 항목 등 자동 제거 |
+| **PDR 청킹** | Child(300자) / Parent(전체 섹션) 분리 저장으로 검색 정확도와 컨텍스트 풍부함 동시 달성 |
+| **모델명 자동 감지** | 구어체 모델명 → 공식 모델명 변환 (예: "S24 울트라" → `SM-S928N`) |
+| **쿼리 최적화** | 구어체 질문을 매뉴얼 전문 용어로 변환하여 검색 정확도 향상 |
+
+**처리 흐름**
+
+```
+MD 파일 로드 (mds/md_files/)
+    ↓
+헤더 레벨 자동 감지 + 노이즈 필터링
+    ↓
+Parent / Child 분리 청킹
+    ├── Child (300자, 검색용)  → samsung_cs_child 컬렉션
+    └── Parent (전체 섹션, LLM 전달용) → samsung_cs_parent 컬렉션
+    ↓
+retrieve_node 호출 시
+    Child로 정밀 검색
+        ↓
+    히트된 Child의 parent_id 추출
+        ↓
+    Parent(전체 섹션) → generate_node로 전달
+```
+
+**Parent Document Retrieval 설계 의도**
+
+기존 RAG의 딜레마를 해결하기 위해 도입
+
+| 방식 | 문제점 |
+| --- | --- |
+| 청크 크게 | 여러 내용이 섞여 벡터 희석 → 검색 부정확 |
+| 청크 작게 | LLM에 전달되는 컨텍스트 부족 → 답변 품질 저하 |
+| **PDR (채택)** | 작은 청크로 정밀 검색 + 전체 섹션으로 풍부한 컨텍스트 전달 |
 ### embedding_pipeline.py
 
 **역할**
