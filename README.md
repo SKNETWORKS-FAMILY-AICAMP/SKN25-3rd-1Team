@@ -113,7 +113,8 @@ SKN25-3rd-1Team/
 ├── agentic_rag_architecture.png       # RAG 시스템 아키텍처 다이어그램
 └── README.md                          # 프로젝트 설명서
 ```
-
+Data 폴더는 최종 업데이트 버전이 Drive에 있습니다.
+[Data](https://drive.google.com/file/d/1J5VZ9PAkoRs1jwUX5nFJTevPlfh5n2vn/view?usp=drive_link)
 
 ---
 
