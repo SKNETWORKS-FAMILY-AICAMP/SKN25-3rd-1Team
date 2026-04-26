@@ -15,6 +15,7 @@ from src.utils.logger import save_node_perf
 from langchain_community.retrievers import BM25Retriever
 import requests
 from dotenv import load_dotenv
+from src.utils.translator import translate_to_korean, translate_to_language
  
 load_dotenv()
  
@@ -471,4 +472,33 @@ def fallback_node(state: GraphState) -> GraphState:
         "source_document": "시스템 안내",
         "reliability_score": 1.0,
         "waiting_for_repair_choice": False
+    }
+
+@time_node
+def translate_input_node(state: GraphState) -> GraphState:
+    print("---NODE: 입력 번역---")
+    
+    if state.get("selected_language", "korean") != "english":
+        return {}
+    
+    last_message = state["messages"][-1].content
+    translated = translate_to_korean(last_message, "english")
+    
+    return {
+        "messages": [("human", translated)]
+    }
+
+
+@time_node
+def translate_output_node(state: GraphState) -> GraphState:
+    print("---NODE: 출력 번역---")
+    
+    if state.get("selected_language", "korean") != "english":
+        return {}
+    
+    last_message = state["messages"][-1].content
+    translated = translate_to_language(last_message, "english")
+    
+    return {
+        "messages": [("assistant", translated)]
     }

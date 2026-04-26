@@ -188,7 +188,7 @@ div[data-popq] .stButton > button:hover {
     box-shadow: 0 6px 12px rgba(0,0,0,0.05) !important;
 }
 
-/* 인기 질문 버튼 텍스트 말줄임 처리 (Image 1 스타일) */
+/* 인기 질문 버튼 텍스트 말줄임 처리 */
 div[data-popq] .stButton > button > div > p {
     white-space: nowrap !important;
     overflow: hidden !important;
@@ -253,12 +253,18 @@ if "selected_category" not in st.session_state: st.session_state.selected_catego
 if "faq_keyword" not in st.session_state: st.session_state.faq_keyword = ""
 if "faq_sort" not in st.session_state: st.session_state.faq_sort = "최신순"
 if "selected_device" not in st.session_state: st.session_state.selected_device = "선택하지 않음"
+if "selected_language" not in st.session_state: st.session_state.selected_language = "korean"
 
 def ask_ai(question):
     """AI 상담 요청 및 상태 업데이트 공통 함수"""
     st.session_state.messages.append({"role": "user", "content": question})
     with st.spinner("해결 방안을 찾는 중입니다..."):
-        response = get_chat_response(question, st.session_state.selected_device, st.session_state.thread_id)
+        response = get_chat_response(
+            question,
+            st.session_state.selected_device,
+            st.session_state.thread_id,
+            st.session_state.selected_language
+        )
         st.session_state.messages.append({"role": "assistant", "content": response})
     st.session_state.view = "chat"
     st.rerun()
@@ -274,7 +280,18 @@ with st.sidebar:
         st.session_state.view = "chat"; st.rerun()
     if st.button(" 자주 묻는 질문", use_container_width=True, type="primary" if st.session_state.view == "faq" else "secondary"):
         st.session_state.view = "faq"; st.rerun()
-    
+
+    # 언어 설정
+    st.markdown("<br><p style='font-size:0.8rem; font-weight:700; color:#64748B !important;'>언어 설정 / Language</p>", unsafe_allow_html=True)
+    selected_language_label = st.selectbox(
+        "언어 선택",
+        options=["한국어", "English"],
+        index=0 if st.session_state.selected_language == "korean" else 1,
+        label_visibility="collapsed"
+    )
+    st.session_state.selected_language = "korean" if selected_language_label == "한국어" else "english"
+
+    # 기기 모델 설정
     st.markdown("<br><p style='font-size:0.8rem; font-weight:700; color:#64748B !important;'>기기 모델 설정</p>", unsafe_allow_html=True)
     series_options = ["선택하지 않음"] + list(device_data.keys()) + ["기타"]
     selected_series = st.selectbox("시리즈 선택", options=series_options, index=0, label_visibility="collapsed")
@@ -340,7 +357,12 @@ if st.session_state.view == "chat":
         st.session_state.messages.append({"role": "user", "content": prompt})
         with st.chat_message("assistant"):
             with st.spinner("해결 방안을 찾는 중..."):
-                response = get_chat_response(prompt, st.session_state.selected_device, st.session_state.thread_id)
+                response = get_chat_response(
+                    prompt,
+                    st.session_state.selected_device,
+                    st.session_state.thread_id,
+                    st.session_state.selected_language
+                )
                 st.markdown(response)
         st.session_state.messages.append({"role": "assistant", "content": response})
 
@@ -348,7 +370,6 @@ else: # FAQ 뷰
     st.markdown("<h2 style='font-size:1.5rem; font-weight:800; margin-bottom:0.5rem;'>자주 묻는 질문</h2>", unsafe_allow_html=True)
     st.markdown("<p class='faq-subtitle'>증상 카테고리를 선택하시면 관련 정보를 확인하실 수 있습니다</p>", unsafe_allow_html=True)
     
-    # 정규화된 카테고리 리스트 (Image 1 기준)
     category_list = [
         "전원/배터리/충전","블루투스","멈춤/오류/재시작","시스템 설정","데이터이동",
         "네트워크/WI-FI","카메라/갤러리","디스플레이","애플리케이션","전화/문자",
@@ -356,7 +377,6 @@ else: # FAQ 뷰
         "이동통신사서비스","기타/주의사항"
     ]
     
-    # 5열 그리드 레이아웃
     for i in range(0, len(category_list), 5):
         cols = st.columns(5)
         row_items = category_list[i : i + 5]
@@ -369,7 +389,6 @@ else: # FAQ 뷰
 
     st.divider()
     
-    # 검색 및 정렬
     s_col1, s_col2 = st.columns([3, 1])
     with s_col1:
         keyword = st.text_input("질문 내용 검색", value=st.session_state.faq_keyword, placeholder="검색어를 입력하세요...", label_visibility="collapsed")
@@ -378,21 +397,18 @@ else: # FAQ 뷰
         sort_val = st.selectbox("정렬 기준", ["최신순", "조회순", "제목순"], label_visibility="collapsed")
         st.session_state.faq_sort = sort_val
 
-    # 데이터 필터링
     df = faq_df.copy()
     if st.session_state.selected_category:
         df = df[df["symptom_category"] == st.session_state.selected_category]
     if keyword:
         df = df[df["title"].str.contains(keyword, case=False) | df["cleaned_content"].str.contains(keyword, case=False)]
     
-    # 정렬 처리
     if sort_val == "최신순": df = df.sort_values("exposureDate", ascending=False)
     elif sort_val == "조회순": df = df.sort_values("viewCnt", ascending=False)
     else: df = df.sort_values("title")
 
     st.markdown(f"<p style='color:#94A3B8; font-size:0.85rem; margin-top:1rem;'>총 {len(df)}건의 검색 결과</p>", unsafe_allow_html=True)
 
-    # FAQ 리스트 출력
     for idx, row in df.head(15).iterrows():
         c_main, c_btn = st.columns([5, 1])
         with c_main:
@@ -405,23 +421,21 @@ else: # FAQ 뷰
             st.markdown("<div style='height:10px;'></div>", unsafe_allow_html=True)
             st.markdown("<div data-askbtn=''>", unsafe_allow_html=True)
             if st.button("AI 상담", key=f"ask_btn_{idx}", use_container_width=True):
-                # 1. 채팅창에 질문 추가
                 st.session_state.messages.append({"role": "user", "content": f"**{row['title']}**에 대해 상담하고 싶어요."})
-                
-                # 2. 답변 생성 (CSV 내용 우선 활용)
                 with st.spinner("답변을 준비 중입니다..."):
                     if pd.notnull(row['cleaned_content']) and len(str(row['cleaned_content']).strip()) > 5:
                         ai_answer = f"해당 증상에 대한 해결 방법입니다.\n\n{row['cleaned_content']}"
                     else:
-                        # 내용이 없으면 RAG API 호출
-                        ai_answer = get_chat_response(row['title'], st.session_state.selected_device, st.session_state.thread_id)
-                    
+                        ai_answer = get_chat_response(
+                            row['title'],
+                            st.session_state.selected_device,
+                            st.session_state.thread_id,
+                            st.session_state.selected_language
+                        )
                     st.session_state.messages.append({"role": "assistant", "content": ai_answer})
-                
-                # 3. 채팅 뷰로 전환 및 화면 갱신
                 st.session_state.view = "chat"
                 st.rerun()
             st.markdown("</div>", unsafe_allow_html=True)
 
-st.markdown("</div>", unsafe_allow_html=True) # padding div
-st.markdown("</div>", unsafe_allow_html=True) # main-card
+st.markdown("</div>", unsafe_allow_html=True)
+st.markdown("</div>", unsafe_allow_html=True)

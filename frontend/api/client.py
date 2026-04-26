@@ -1,19 +1,16 @@
 import os
-import sys
 import requests
 from dotenv import load_dotenv
 
-# 모듈 경로 설정을 통한 시스템 접근
 current_dir = os.path.dirname(os.path.abspath(__file__))
 frontend_dir = os.path.dirname(current_dir)
 root_dir = os.path.dirname(frontend_dir)
 
-# 환경 변수 로드
 load_dotenv(os.path.join(root_dir, '.env'))
 
 FASTAPI_URL = os.getenv("FASTAPI_URL")
 
-def get_chat_response(question: str, selected_device: str, thread_id: str = "streamlit_user"):
+def get_chat_response(question: str, selected_device: str, thread_id: str = "streamlit_user", selected_language: str = "korean"):
     """
     고객 CS 챗봇 API 클라이언트.
     FastAPI 백엔드 서버에 REST API 요청을 보내서 답변을 반환받습니다.
@@ -22,10 +19,10 @@ def get_chat_response(question: str, selected_device: str, thread_id: str = "str
         payload = {
             "question": question,
             "selected_device": selected_device,
-            "thread_id": thread_id
+            "thread_id": thread_id,
+            "selected_language": selected_language
         }
         
-        # FastAPI 서버로 POST 요청 전송
         response = requests.post(FASTAPI_URL, json=payload, timeout=60)
         response.raise_for_status()
         
@@ -42,4 +39,3 @@ def get_chat_response(question: str, selected_device: str, thread_id: str = "str
     except Exception as e:
         print(f"API Client Error: {e}")
         return "오류가 발생하여 답변을 생성할 수 없습니다. 고객센터에 직접 문의해주세요."
-

@@ -8,9 +8,9 @@ from src.utils.logger import save_usage_log
 
 load_dotenv()
 
-def generate_cs_response(question: str, selected_device: str = "선택하지 않음", thread_id: str = "default_user"): 
+def generate_cs_response(question: str, selected_device: str = "선택하지 않음", thread_id: str = "default_user", selected_language: str = "korean"): 
     config = {"configurable": {"thread_id": thread_id}}
-    trace_id = str(uuid.uuid4())  # Redis 성능 측정을 위한 고유 ID 생성
+    trace_id = str(uuid.uuid4())
     print(f" [Pipeline Start] 사용자 질문 접수: {question} (TraceID: {trace_id})")
     
     log_entry = {
@@ -23,9 +23,13 @@ def generate_cs_response(question: str, selected_device: str = "선택하지 않
     }
  
     try:
-        # trace_id를 초기 상태에 포함시켜 전달
         result = rag_app.invoke(
-            {"messages": [("user", question)], "selected_device": selected_device, "trace_id": trace_id}, 
+            {
+                "messages": [("user", question)],
+                "selected_device": selected_device,
+                "selected_language": selected_language,
+                "trace_id": trace_id
+            }, 
             config
         )
         print("[Pipeline End] 최종 답변 생성 완료")
