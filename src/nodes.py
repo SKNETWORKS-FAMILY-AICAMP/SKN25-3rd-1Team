@@ -1,4 +1,8 @@
 import os
+import json
+import pickle
+import time
+from functools import wraps
 from pydantic import BaseModel, Field
 from typing import Literal, Optional
 from langchain_openai import ChatOpenAI
@@ -7,14 +11,34 @@ from langchain_core.messages import SystemMessage, HumanMessage, AIMessage
 from src.state import GraphState
 from src.pipelines.embedding_pipeline import get_vector_store
 from src.pipelines.self_repair_rag_pipeline import make_rag_chain, get_available_models
- 
-import json
-import pickle
+from src.utils.logger import save_node_perf
 from langchain_community.retrievers import BM25Retriever
 import requests
 from dotenv import load_dotenv
+from src.utils.translator import translate_to_korean, translate_to_language
  
 load_dotenv()
+ 
+# ==========================================
+# [0] 시간 측정 데코레이터
+# ==========================================
+def time_node(func):
+    @wraps(func)
+    def wrapper(state: GraphState, *args, **kwargs):
+        start_time = time.time()
+        node_name = func.__name__
+        trace_id = state.get("trace_id", "unknown_trace")
+        
+        # 실제 노드 실행
+        result = func(state, *args, **kwargs)
+        
+        duration = time.time() - start_time
+        
+        # Redis Stream에 성능 로그 저장
+        save_node_perf(trace_id, node_name, duration)
+        
+        return result
+    return wrapper
  
 KAKAO_API_KEY = os.getenv("KAKAO_API_KEY")
  
@@ -43,21 +67,18 @@ class RouteQuery(BaseModel):
         description="""이전 대화 맥락 전체를 고려하여 분류하세요.
 - 'greeting': 인사, 잡담, 요약 요청
 - 'cs_query': 새로운 기기 고장이나 서비스 문의. 이전에 센터 안내를 받았더라도 새로운 기기 문제를 언급하면 반드시 'cs_query'로 분류하세요.
-- 'center_visit': 센터 찾기, 예약 요청. 수리 관련 잡담이나 질문은 절대 'center_visit'으로 분류하지 마세요.
-  또는 이전 대화에서 이미 기기 문제 해결을 시도했는데 아직 해결이 안 됐다는 맥락이면 'center_visit'으로 분류하세요.
-"""
+- 'center_visit': 서비스 센터 위치, 예약, 방문 절차에 대한 명시적 요청. (예: 센터 찾아줘, 예약할래)"""
     )
 
 class IssueTypeCheck(BaseModel):
     issue_type: Literal["software", "hardware", "center_visit"] = Field(
-        description="질문이 앱 설정 등 소프트웨어 문제면 'software', 부품/파손 등 하드웨어 문제면 'hardware', 다짜고짜 센터를 찾으면 'center_visit'"
+        description="""기기 문제의 유형을 분류합니다.
+- 'software': 앱 오류, 설정 변경, 발열 등 소프트웨어적 조치로 해결 가능한 문제.
+- 'hardware': 액정 파손, 배터리 교체 등 물리적 분해 및 수리가 필요한 문제.
+- 'center_visit': 기기 상태와 무관하게 서비스 센터 방문을 직접적으로 요구하는 경우."""
     )
  
-class HallucinationCheck(BaseModel):
-    is_grounded: Literal["pass", "fail"] = Field(
-        description="답변이 제공된 문서 내용에만 기반했으면 'pass', 지어낸 내용이 있으면 'fail'"
-    )
- 
+
 class SelfRepairExtraction(BaseModel):
     device_model: str = Field(description="언급된 기기 모델명 (예: Galaxy S22), 없으면 빈 문자열")
     is_hardware_issue: bool = Field(description="액정 파손, 배터리 교체 등 물리적 하드웨어 수리가 필요한지 여부")
@@ -68,6 +89,7 @@ class SelfRepairExtraction(BaseModel):
 # ==========================================
 # [2] 조건부 라우팅 함수
 # ==========================================
+@time_node
 def route_issue_type(state: GraphState) -> str:
     print("---ROUTING: 이슈 타입 분류 중---")
     
@@ -91,10 +113,36 @@ def route_issue_type(state: GraphState) -> str:
         return "nearest_center_node"
     return "generate_node"
  
+    
+@time_node
+def route_after_self_repair_check(state: GraphState) -> str:
+    print("---ROUTING: 자가수리 라우팅 체크---")
+    
+    if state.get("waiting_for_repair_choice"):
+        return "self_repair_guide_node"
+        
+    return "nearest_center_node"
  
+
+
+@time_node
+def route_question(state: GraphState) -> str:
+    print("---ROUTING: 진입점 및 의도 분류 중---")
+    structured_llm = llm.with_structured_output(RouteQuery)
+    recent_messages = state["messages"][-2:]
+    result = structured_llm.invoke(recent_messages)
+    
+    if result.intent == "greeting":
+        return "chat_node"
+    elif result.intent == "center_visit":
+        return "nearest_center_node"
+    return "retrieve_node"
+
+
 # ==========================================
 # [3] 노드들
 # ==========================================
+@time_node
 def chat_node(state: GraphState) -> GraphState:
     print("---NODE: 일반 대화---")
     
@@ -143,6 +191,7 @@ def chat_node(state: GraphState) -> GraphState:
     }
  
  
+@time_node
 def retrieve_node(state: GraphState) -> GraphState:
     print("---NODE: 문서 검색 (Vector DB 단독)---")
     question = state["messages"][-1].content
@@ -203,6 +252,7 @@ def retrieve_node(state: GraphState) -> GraphState:
  
     return {"context": context, "relevance_score": float(top_score)}
  
+@time_node
 def generate_node(state: GraphState) -> GraphState:
     print("---NODE: 1차 답변 생성---")
     
@@ -257,9 +307,10 @@ def generate_node(state: GraphState) -> GraphState:
         "messages": [("assistant", response.content)],
         "source_document": "내부 매뉴얼", 
         "reliability_score": 0.9,
-        "show_resolution_buttons": True  # ← 추가
+        "show_resolution_buttons": True  
     }
  
+@time_node
 def self_repair_classifier_node(state: GraphState) -> GraphState:
     print("---NODE: 자가수리 분류기 (기기, 파손, 수리의향 동시 판별)---")
     
@@ -267,25 +318,22 @@ def self_repair_classifier_node(state: GraphState) -> GraphState:
     repair_models_list = load_self_repair_models()
     selected_device = state.get("selected_device", "선택하지 않음")
     
-    prompt = f"""
-다음은 사용자의 문의에서 1) 하드웨어 문제인지, 2) 자가수리가 가능한 기기인지, 3) 수리 의향은 무엇인지 종합적으로 분석하는 작업입니다.
- 
-[사용자가 사전에 선택한 기기]
-{selected_device}
- 
-[자가수리 지원 기기 모델 목록]
-{repair_db_str}
- 
-분석 지침:
-1. 기기 모델명 (device_model): 사용자가 사전에 기기를 선택했다면 그것을 우선 고려하되, 질문 내용에서 다른 기기가 명백하게 언급되었다면 질문 속 기기명을 우선 추출하세요. 만약 추출된 기기가 위 [자가수리 지원 기기 모델 목록]에 존재한다면 공식 모델명(예: "S20 Ultra", "갤럭시 Z 플립5")을 명확하게 출력해 주세요. 목록에 없다면 파악된 이름을 그대로 적습니다.
-2. 하드웨어 이슈 (is_hardware_issue): 액정, 뒷면 유리, 배터리 등 물리적인 교체가 필요한 파손/고장인가요?
-3. 사용자 의향 (user_intent): 
-   - '내가 고칠래', '매뉴얼 줘', '부품 줘' 등 본인이 수리하려는 의지면 'self_repair'
-   - '센터 갈래', '센터 찾아줘', '예약해줘' 등 센터 방문 의지면 'center_visit'
-   - 단순히 고장을 호소하며 어떻게 할지 묻기만 하거나 의향이 모호하다면 'unknown'
- 
-관련 문서: {state.get("context", "")}
-"""
+    prompt = f"""사용자 문의를 분석하여 기기 모델명, 하드웨어 문제 여부, 수리 의향을 추출하십시오.
+
+    [데이터]
+    사전 선택 기기: {selected_device}
+    자가수리 지원 목록: {repair_db_str}
+
+    [추출 규칙]
+    1. device_model: 대화에서 언급된 기기명을 추출하십시오. 명시되지 않았다면 사전 선택 기기를 사용하십시오. 자가수리 지원 목록에 포함된 경우 해당 공식 명칭으로 정규화하십시오.
+    2. is_hardware_issue: 부품 교체나 물리적 파손 수리가 필요한 경우 true, 설정이나 소프트웨어 문제인 경우 false로 설정하십시오.
+    3. user_intent: 
+    - 'self_repair': 직접 수리하거나 부품/가이드를 요구하는 경우.
+    - 'center_visit': 오프라인 센터 수리 및 방문을 요구하는 경우.
+    - 'unknown': 단순히 증상만 설명하거나 의도가 불분명한 경우.
+
+    관련 문서: {state.get("context", "")}
+    """
     
     sys_msg = SystemMessage(content=prompt)
     structured_llm = llm.with_structured_output(SelfRepairExtraction)
@@ -315,6 +363,7 @@ def self_repair_classifier_node(state: GraphState) -> GraphState:
     }
  
  
+@time_node
 def self_repair_guide_node(state: GraphState) -> GraphState:
     print("---NODE: 자가수리 매뉴얼 검색 및 안내---")
     device_model = state.get('device_model')
@@ -382,6 +431,7 @@ def get_kakao_nearest_centers(lat: float, lng: float) -> str:
         
     return None
  
+@time_node
 def nearest_center_node(state: dict) -> dict:
     print("---NODE: 동적 센터 방문 안내 수행 (카카오 API)---")
     
@@ -405,6 +455,7 @@ def nearest_center_node(state: dict) -> dict:
         "waiting_for_repair_choice": False
     }
  
+@time_node
 def fallback_node(state: GraphState) -> GraphState:
     print("---NODE: 검색 실패 예외 처리 (선택지 제공)---")
     
@@ -422,54 +473,32 @@ def fallback_node(state: GraphState) -> GraphState:
         "reliability_score": 1.0,
         "waiting_for_repair_choice": False
     }
- 
-def route_issue_type(state: GraphState) -> str:
-    print("---ROUTING: 이슈 타입 분류 중---")
-    
-    if state.get("context") == "검색된 문서 없음":
-        return "fallback_node"
-    
-    prompt = f"""사용자의 질문이 어떤 유형인지 분류하세요.
-[사전 선택 기기: {state.get("selected_device", "선택하지 않음")}]
 
-1. 'hardware': 자가수리, 배터리 교체, 액정 교체 등 물리적으로 직접 수리하려는 의향이 있는 경우
-2. 'software': 그 외 모든 기기 문제 및 설정 문의
-3. 'center_visit': 센터 위치나 예약을 명시적으로 요청하는 경우
-"""
-    sys_msg = SystemMessage(content=prompt)
-    structured_llm = llm.with_structured_output(IssueTypeCheck)
-    result = structured_llm.invoke([sys_msg] + state["messages"])
+@time_node
+def translate_input_node(state: GraphState) -> GraphState:
+    print("---NODE: 입력 번역---")
     
-    if result.issue_type == "hardware":
-        return "self_repair_classifier_node"
-    elif result.issue_type == "center_visit":
-        return "nearest_center_node"
-    return "generate_node"
+    if state.get("selected_language", "korean") != "english":
+        return {}
     
-def route_after_self_repair_check(state: GraphState) -> str:
-    print("---ROUTING: 자가수리 라우팅 체크---")
+    last_message = state["messages"][-1].content
+    translated = translate_to_korean(last_message, "english")
     
-    if state.get("waiting_for_repair_choice"):
-        return "self_repair_guide_node"
-        
-    return "nearest_center_node"
- 
-def check_hallucination_routing(state: GraphState) -> str:
-    print("---ROUTING: 환각 체크---")
-    score = state.get("reliability_score", 1.0)
-    if score >= 0.8:
-        return "END"
-    else:
-        return "nearest_center_node"
+    return {
+        "messages": [("human", translated)]
+    }
 
-def route_question(state: GraphState) -> str:
-    print("---ROUTING: 진입점 및 의도 분류 중---")
-    structured_llm = llm.with_structured_output(RouteQuery)
-    recent_messages = state["messages"][-2:]
-    result = structured_llm.invoke(recent_messages)
+
+@time_node
+def translate_output_node(state: GraphState) -> GraphState:
+    print("---NODE: 출력 번역---")
     
-    if result.intent == "greeting":
-        return "chat_node"
-    elif result.intent == "center_visit":
-        return "nearest_center_node"
-    return "retrieve_node"
+    if state.get("selected_language", "korean") != "english":
+        return {}
+    
+    last_message = state["messages"][-1].content
+    translated = translate_to_language(last_message, "english")
+    
+    return {
+        "messages": [("assistant", translated)]
+    }
