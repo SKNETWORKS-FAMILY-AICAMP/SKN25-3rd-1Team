@@ -26,9 +26,6 @@ parts/
 sdist/
 var/
 wheels/
-django_frontend/db.sqlite3
-django_frontend/staticfiles/
-*.log
 
 # ==========================================
 # 3. Data & Vector Store (핵심 방어 구역)
